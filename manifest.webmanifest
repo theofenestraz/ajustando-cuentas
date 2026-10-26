@@ -1,0 +1,17 @@
+{
+  "name": "Ajustando Cuentas",
+  "short_name": "Cuentas",
+  "description": "Apunta tus gastos e ingresos y reparte tu ahorro en proyectos.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1C2740",
+  "theme_color": "#1C2740",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
