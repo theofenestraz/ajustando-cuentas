@@ -4,7 +4,7 @@
 
 const KEY = 'ajustando-cuentas-v1';
 
-const PALETTE = ['#D93A2B', '#2F8F4E', '#8E4C9E', '#C8611F', '#0E8784', '#C93C74', '#8A5A3B', '#6E7D1F', '#56657E', '#5C4BB5'];
+const PALETTE = ['#D93A2B', '#2A8047', '#8E4C9E', '#B4561B', '#0C7975', '#C93C74', '#8A5A3B', '#6E7D1F', '#56657E', '#5C4BB5'];
 
 const STARTER_CATS = [
   ['Comida', 'CO', 0, 'gasto'], ['Transporte', 'TR', 1, 'gasto'], ['Ocio', 'OC', 2, 'gasto'],
