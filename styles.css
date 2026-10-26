@@ -302,8 +302,8 @@ button.row:hover{background:rgba(28,39,64,.03)}
   .app{box-shadow:0 0 0 1px var(--rule)}
 }
 /* El único momento con movimiento: la línea se llena al entrar en la pantalla. */
-.animate .hmap .seg{animation:seg-x .7s var(--ease) both}
-.animate .metro .vseg{animation:seg-y .7s var(--ease) both}
+.animate .hmap .seg{animation:seg-x .7s var(--ease)}
+.animate .metro .vseg{animation:seg-y .7s var(--ease)}
 @keyframes seg-x{from{transform:scaleX(0)}}
 @keyframes seg-y{from{transform:scaleY(0)}}
 

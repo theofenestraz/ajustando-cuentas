@@ -250,7 +250,8 @@ function saveLineCard() {
   return `<a class="saveline" href="#ahorro" aria-label="Ver el ahorro">
     <div class="head"><span>Sin asignar <b>${fmtRound(unassigned())}</b></span><span>${open.length} ${open.length === 1 ? 'proyecto' : 'proyectos'}${open.length > 3 ? ', ves 3' : ''}</span></div>
     <div class="hmap" aria-hidden="true"><div class="rail"></div>
-      ${shown.map((p, i) => `<span class="seg" style="left:${prev(i)}%;width:${(pos(i) - prev(i)) * fillOf(p)}%;animation-delay:${i * 120}ms"></span>`).join('')}
+      ${shown.map((p, i) => { const r0 = i ? stationSize(shown[i - 1], maxT, 22, 16) / 2 : 9, r1 = stationSize(p, maxT, 22, 16) / 2;
+        return `<span class="seg" style="left:calc(${prev(i)}% + ${r0}px);width:calc((${pos(i) - prev(i)}% - ${r0 + r1}px) * ${fillOf(p)})"></span>`; }).join('')}
       <span class="stn start" style="left:0"></span>
       ${shown.map((p, i) => { const s = stationSize(p, maxT, 22, 16); return `<span class="stn${p.target && projAlloc(p) >= p.target ? ' done' : ''}" style="left:${pos(i)}%;width:${s}px;height:${s}px"></span>`; }).join('')}
     </div>
@@ -337,7 +338,7 @@ function monthView() {
     <div class="sec-h"><h2 id="h-where">En qué se fue</h2></div>
     ${gastoCats.length ? gastoCats.map(x => {
       const d = x.v - x.p;
-      const delta = x.p ? `<span class="${d > 0 ? 'delta-up' : 'delta-down'}">${d === 0 ? 'Igual que' : (d > 0 ? '+' : '−') + fmtRound(Math.abs(d)) + ' que'} en ${monthShort(prev).toLowerCase()}.</span>` : '';
+      const delta = x.p ? `<span class="${d > 0 ? 'delta-up' : 'delta-down'}">${d === 0 ? 'Igual que' : fmtRound(Math.abs(d)) + (d > 0 ? ' más que' : ' menos que')} en ${monthShort(prev).toLowerCase()}.</span>` : '';
       const share = Math.round(x.v / t.out * 100);
       const meta = x.c.budget ? `<span class="${x.v > x.c.budget ? 'delta-up' : ''}">${Math.round(x.v / x.c.budget * 100)} % de ${fmtRound(x.c.budget)}</span>` : `${share} % de lo gastado`;
       return `<div class="split">${roundel(x.c)}<div>
@@ -386,7 +387,8 @@ function savingsView() {
     <ol class="metro">
       <li class="metro-art" aria-hidden="true">
         <span class="vrail" style="top:${mid(0)}px;height:${H * (open.length + 1)}px"></span>
-        ${open.map((p, i) => `<span class="vseg" style="top:${mid(i)}px;height:${H * fillOf(p)}px;animation-delay:${i * 120}ms"></span>`).join('')}
+        ${open.map((p, i) => { const r0 = i ? stationSize(open[i - 1], maxT, 22, 16) / 2 : 14, r1 = stationSize(p, maxT, 22, 16) / 2;
+          return `<span class="vseg" style="top:${mid(i) + r0}px;height:${(H - r0 - r1) * fillOf(p)}px"></span>`; }).join('')}
         <svg class="xfer" viewBox="-16 0 78 40" width="78" height="40"><path d="M-16 6H8L31 29"/></svg>
       </li>
       <li><div class="station"><span class="dot free" style="width:28px;height:28px"></span>
