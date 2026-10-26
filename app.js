@@ -160,7 +160,8 @@ let monthFilter = 'all';
 
 function route() { return (location.hash || '#hoy').slice(1).split('/')[0] || 'hoy'; }
 
-function render() {
+function render(animate = false) {
+  view.classList.toggle('animate', animate);
   if (!state.setup) { tabs.hidden = true; view.innerHTML = welcomeView(); bindWelcome(); return; }
   tabs.hidden = false;
   const r = route();
@@ -210,19 +211,29 @@ function todayView() {
   </section>`;
 }
 
+/* Línea de presupuesto: el final de línea marca el límite; si te pasas, la línea sigue en rojo. */
+function budgetTrack(spent, budget, color, label) {
+  const over = spent > budget;
+  const term = over ? budget / spent * 100 : 100, here = over ? 100 : spent / budget * 100;
+  return `<div class="track" role="img" aria-label="${label}">
+    <div class="fill${over ? ' cut' : ''}" style="width:${over ? term : here}%;background:${color}"></div>
+    ${over ? `<div class="past" style="left:${term}%"></div>` : ''}
+    <div class="term" style="left:${term}%"></div>
+    <div class="here" style="left:${here}%;border-color:${over ? 'var(--out)' : color}"></div>
+  </div>`;
+}
+
 function budgetLine(c, m) {
-  const spent = spentIn(c.id, m), pct = Math.min(spent / c.budget, 1) * 100, left = c.budget - spent;
+  const spent = spentIn(c.id, m), left = c.budget - spent;
   return `<li class="bline">
     ${roundel(c)}
     <div><div class="name"><span>${esc(c.name)}</span><span class="left${left < 0 ? ' over' : ''}">${left < 0 ? 'Te pasas ' + fmtRound(-left) : 'Quedan ' + fmtRound(left)}</span></div>
-      <div class="track" role="img" aria-label="${esc(c.name)}: ${fmt(spent)} gastados de ${fmt(c.budget)}">
-        <div class="fill" style="width:${pct}%;background:${c.color}"></div>
-        <div class="here" style="left:${pct}%;border-color:${c.color}"></div>
-        ${left < 0 ? '<div class="over"></div>' : ''}
-      </div></div>
+      ${budgetTrack(spent, c.budget, c.color, `${esc(c.name)}: ${fmt(spent)} gastados de ${fmt(c.budget)}`)}</div>
     <div class="amt"><b>${fmtRound(spent)}</b>de ${fmtRound(c.budget)}</div>
   </li>`;
 }
+
+const fillOf = p => p.target ? Math.min(projAlloc(p) / p.target, 1) : (projAlloc(p) > 0 ? 1 : 0);
 
 function stationSize(p, maxT, min = 18, span = 14) { return Math.round(min + span * Math.sqrt((p.target || 1) / (maxT || 1))); }
 
@@ -235,12 +246,13 @@ function saveLineCard() {
   }
   const shown = open.slice(0, 3), maxT = Math.max(...shown.map(p => p.target || 0));
   const n = shown.length;
-  const pos = i => (i + 0.5) / n * 100;
+  const pos = i => (i + 0.5) / n * 100, prev = i => i ? pos(i - 1) : 0;
   return `<a class="saveline" href="#ahorro" aria-label="Ver el ahorro">
     <div class="head"><span>Sin asignar <b>${fmtRound(unassigned())}</b></span><span>${open.length} ${open.length === 1 ? 'proyecto' : 'proyectos'}${open.length > 3 ? ', ves 3' : ''}</span></div>
     <div class="hmap" aria-hidden="true"><div class="rail"></div>
+      ${shown.map((p, i) => `<span class="seg" style="left:${prev(i)}%;width:${(pos(i) - prev(i)) * fillOf(p)}%;animation-delay:${i * 120}ms"></span>`).join('')}
       <span class="stn start" style="left:0"></span>
-      ${shown.map((p, i) => { const s = stationSize(p, maxT); return `<span class="stn${p.target && projAlloc(p) >= p.target ? ' done' : ''}" style="left:${pos(i)}%;width:${s}px;height:${s}px"></span>`; }).join('')}
+      ${shown.map((p, i) => { const s = stationSize(p, maxT, 22, 16); return `<span class="stn${p.target && projAlloc(p) >= p.target ? ' done' : ''}" style="left:${pos(i)}%;width:${s}px;height:${s}px"></span>`; }).join('')}
     </div>
     <div class="hlabels">
       ${shown.map((p, i) => `<span style="left:${pos(i)}%;max-width:calc(${100 / n}% - 6px)"><b>${esc(p.name)}</b>${fmtRound(projAlloc(p))}${p.target ? ' de ' + fmtRound(p.target) : ''}</span>`).join('')}
@@ -292,7 +304,6 @@ function monthView() {
   const scale = Math.max(1, ...totals.map(x => Math.max(x.inc, x.out)));
   const gastoCats = state.cats.filter(c => c.kind === 'gasto').map(c => ({ c, v: spentIn(c.id, m), p: spentIn(c.id, prev), n: movesOf('gasto', x => x.cat === c.id && monthOf(x.date) === m).length })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
   const incCats = state.cats.filter(c => c.kind === 'ingreso').map(c => ({ c, v: sum(movesOf('ingreso', x => x.cat === c.id && monthOf(x.date) === m)) })).filter(x => x.v > 0).sort((a, b) => b.v - a.v);
-  const maxCat = Math.max(1, ...gastoCats.map(x => x.v));
   const inMonth = state.moves.filter(x => monthOf(x.date) === m && ['gasto', 'ingreso', 'proyecto'].includes(x.kind));
   const usedCats = [...new Set(inMonth.map(x => x.cat).filter(Boolean))].map(cat).filter(Boolean);
   if (monthFilter !== 'all' && !usedCats.some(c => c.id === monthFilter)) monthFilter = 'all';
@@ -326,11 +337,12 @@ function monthView() {
     <div class="sec-h"><h2 id="h-where">En qué se fue</h2></div>
     ${gastoCats.length ? gastoCats.map(x => {
       const d = x.v - x.p;
-      const delta = x.p ? `<span class="${d > 0 ? 'delta-up' : 'delta-down'}">${d === 0 ? 'Igual que' : fmtRound(Math.abs(d)) + (d > 0 ? ' más que' : ' menos que')} en ${monthShort(prev).toLowerCase()}.</span>` : '';
-      const meta = x.c.budget ? `<span class="${x.v > x.c.budget ? 'delta-up' : ''}">${Math.round(x.v / x.c.budget * 100)} % de ${fmtRound(x.c.budget)}</span>` : `${x.n} ${x.n === 1 ? 'movimiento' : 'movimientos'}`;
+      const delta = x.p ? `<span class="${d > 0 ? 'delta-up' : 'delta-down'}">${d === 0 ? 'Igual que' : (d > 0 ? '+' : '−') + fmtRound(Math.abs(d)) + ' que'} en ${monthShort(prev).toLowerCase()}.</span>` : '';
+      const share = Math.round(x.v / t.out * 100);
+      const meta = x.c.budget ? `<span class="${x.v > x.c.budget ? 'delta-up' : ''}">${Math.round(x.v / x.c.budget * 100)} % de ${fmtRound(x.c.budget)}</span>` : `${share} % de lo gastado`;
       return `<div class="split">${roundel(x.c)}<div>
         <div class="r1"><span class="nm">${esc(x.c.name)}</span><b>${fmt(x.v)}</b></div>
-        <div class="track"><div class="fill" style="width:${x.v / maxCat * 100}%;background:${x.c.color}"></div></div>
+        ${x.c.budget ? budgetTrack(x.v, x.c.budget, x.c.color, `${esc(x.c.name)}: ${fmt(x.v)} de ${fmt(x.c.budget)}`) : ''}
         <div class="r2">${x.c.budget ? meta : `<span>${meta}</span>`}${delta}</div></div></div>`;
     }).join('') : '<p class="hint">Este mes no hay gastos apuntados.</p>'}
     ${t.fromProjects ? `<p class="hint" style="margin-top:8px">Además, pagaste ${fmt(t.fromProjects)} con dinero de tus proyectos de ahorro. No cuenta en los presupuestos.</p>` : ''}
@@ -355,6 +367,7 @@ function monthView() {
 function savingsView() {
   const open = openProjects(), closed = state.projects.filter(p => p.closed);
   const maxT = Math.max(0, ...open.map(p => p.target || 0));
+  const H = 76, mid = k => H / 2 + H * k;
   const saveMoves = sortedMoves(state.moves.filter(m => ['ahorrar', 'retirar', 'proyecto'].includes(m.kind))).slice(0, 10);
   return `
   <header class="top">
@@ -371,14 +384,18 @@ function savingsView() {
   <section class="sec" aria-labelledby="h-metro">
     <div class="sec-h"><h2 id="h-metro">Tu línea</h2></div>
     <ol class="metro">
-      <li><div class="station"><span class="dot free" style="width:24px;height:24px"></span>
-        <span class="info"><span class="nm">Sin asignar</span><span class="sub">${fmt(unassigned())} libres para repartir</span></span></div></li>
+      <li class="metro-art" aria-hidden="true">
+        <span class="vrail" style="top:${mid(0)}px;height:${H * (open.length + 1)}px"></span>
+        ${open.map((p, i) => `<span class="vseg" style="top:${mid(i)}px;height:${H * fillOf(p)}px;animation-delay:${i * 120}ms"></span>`).join('')}
+        <svg class="xfer" viewBox="-16 0 78 40" width="78" height="40"><path d="M-16 6H8L31 29"/></svg>
+      </li>
+      <li><div class="station"><span class="dot free" style="width:28px;height:28px"></span>
+        <span class="info"><span class="nm">Sin asignar</span><span class="sub">${fmt(unassigned())} libres, enlaza con el día a día</span></span></div></li>
       ${open.map(p => {
         const a = projAlloc(p), s = stationSize(p, maxT, 22, 16), done = p.target && a >= p.target;
         return `<li><button class="station" type="button" data-project="${p.id}"><span class="dot${done ? ' done' : ''}" style="width:${s}px;height:${s}px"></span>
           <span class="info"><span class="nm">${esc(p.name)}${p.kind === 'regalo' ? '<svg aria-label="regalo"><use href="#i-gift"/></svg>' : ''}</span>
-          <span class="sub">${fmt(a)}${p.target ? ' de ' + fmt(p.target) + (done ? ', meta cumplida' : `, faltan ${fmtRound(p.target - a)}`) : ''}</span>
-          ${p.target ? `<span class="track"><span class="fill" style="width:${Math.min(a / p.target, 1) * 100}%"></span></span>` : ''}</span></button></li>`;
+          <span class="sub">${fmt(a)}${p.target ? ' de ' + fmt(p.target) + (done ? ', meta cumplida' : `, faltan ${fmtRound(p.target - a)}`) : ''}</span></span></button></li>`;
       }).join('')}
       <li><button class="station" type="button" data-act="new-project"><span class="dot" style="width:24px;height:24px;display:grid;place-items:center;border-width:4px"><svg style="width:14px;height:14px;stroke:var(--save);stroke-width:3"><use href="#i-plus"/></svg></span>
         <span class="info"><span class="nm">Nuevo proyecto</span><span class="sub">Un viaje, un regalo, algo que quieras comprar</span></span></button></li>
@@ -914,11 +931,11 @@ view.addEventListener('click', e => {
 });
 view.addEventListener('change', e => { if (e.target.matches('[data-act="import"]')) importFile(e.target.files[0]); });
 
-window.addEventListener('hashchange', () => { if (route() === 'mes' && !location.hash.includes('keep')) monthViewing = thisMonth(); render(); window.scrollTo(0, 0); view.focus({ preventScroll: true }); });
+window.addEventListener('hashchange', () => { if (route() === 'mes') monthViewing = thisMonth(); render(true); window.scrollTo(0, 0); view.focus({ preventScroll: true }); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.setup) { applyRecurring(); render(); } });
 
 applyRecurring();
-render();
+render(true);
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
